@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UNITH — Composer con Chroma → MP4</title>
+
+  <!-- Favicons (opcional) -->
+  <link rel="icon" type="image/png" sizes="16x16" href="Favicon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="Favicon.png">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Look & feel del estilo 2 -->
+  <style>
+    body{ background: radial-gradient(circle at center, #0033cc 0%, #000814 100%); color:white; }
+    .card{ background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border:1px solid rgba(255,255,255,0.1); }
+    .card-dark{ background: rgba(0,0,0,0.45); border:1px solid rgba(255,255,255,0.2); backdrop-filter: blur(12px); }
+    h1,h2,h3{ letter-spacing: .05em; }
+    footer{ border-color: rgba(255,255,255,0.1); }
+    /* Inputs base para integrarse con Tailwind + tema oscuro */
+    input[type="file"], select, input[type="number"], input[type="text"], input[type="password"], textarea {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white; border-radius: .75rem; padding: .6rem .8rem;
+    }
+    input[type="range"]{ accent-color:#60a5fa; }
+    video, canvas { background:#000; border-radius: .9rem; }
+    .bar{ height:10px; background: rgba(255,255,255,0.12); border-radius: 999px; overflow: hidden; }
+    .bar>i{ display:block; height:100%; width:0%; background:#22c55e; transition: width .2s; }
+    .kv .num{ width:56px; text-align:right; font-variant-numeric: tabular-nums; opacity:.85; }
+  </style>
+
+  <!-- Microsoft speech recognition bundle (si lo necesitas para otros widgets) -->
+  <script src="https://embedded.unith.ai/microsoft-speech-recognition.js"></script>
+  <!-- CSS & JS del bundle del widget (no requerido por esta página, pero conservado si lo usas en paralelo) -->
+  <link rel="stylesheet" href="https://embedded.unith.ai/dist/bundle.css" />
+  <script defer src="https://embedded.unith.ai/dist/bundle.js"></script>
+</head>
+<body class="min-h-screen text-white">
+  <!-- Marca UNITH arriba dcha -->
+  <a href="../index.html" aria-label="Go to Home" class="fixed top-4 right-4 z-50 block rounded-xl bg-white/10 border border-white/20 backdrop-blur px-2 py-2 hover:bg-white/20 transition">
+    <img src="Unith-Brandmark-4.png" alt="UNITH brandmark" class="h-10 w-10 md:h-12 md:w-12 object-contain drop-shadow" loading="eager" decoding="async" draggable="false">
+  </a>
+
+  <!-- HERO -->
+  <section class="w-full py-10">
+    <div class="max-w-7xl mx-auto px-4 text-center">
+      <div class="flex justify-center">
+          <!-- Top-right brandmark (link to home) -->
+        <a href="../index.html"
+        aria-label="Go to Home"
+        class="fixed top-4 right-4 z-50 block rounded-xl bg-white/10 border border-white/20 backdrop-blur px-2 py-2 hover:bg-white/20 transition">
+        <img src="Unith-Brandmark-4.png"
+            alt="UNITH brandmark"
+            class="h-10 w-10 md:h-12 md:w-12 object-contain drop-shadow"
+            loading="eager"
+            decoding="async"
+            draggable="false">
+        </a>
+      </div>
+      <h1 class="text-3xl md:text-4xl font-bold leading-tight text-blue-300 mt-3">Create your Social Media Video </h1>
+      <p class="mt-3 text-slate-200 max-w-3xl mx-auto">
+        Make videos with a digital human, no studio needed!<br>
+        Generate a UNITH digital human (auto green screen), drop in any background, and place the speaker exactly where you want. Perfect for social posts, ads, tutorials, and more.
+      </p>
+    </div>
+  </section>
+
+  <!-- MAIN -->
+  <section class="max-w-7xl mx-auto px-4 pb-14 grid lg:grid-cols-[3fr_2fr] gap-6 items-start">
+    <!-- Columna izquierda: Controles y barra de progreso -->
+    <div class="space-y-6">
+      <!-- Controles principales -->
+      <div class="card rounded-3xl p-6">
+        <!-- Inputs FG/BG -->
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <div class="font-semibold">Videos foreground (persona con croma):</div>
+            <input id="fgFiles" type="file" accept="video/*" multiple class="w-full mt-2" />
+          </div>
+          <div>
+            <div class="font-semibold">Fondos (vídeo o imagen):</div>
+            <input id="bgFiles" type="file" accept="video/*,image/*" multiple class="w-full mt-2" />
+          </div>
+        </div>
+
+        <!-- Ajustes generales -->
+        <div class="mt-5 grid md:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
+          <label class="flex flex-col gap-1"> <span class="text-sm opacity-80">Formato salida</span>
+            <select id="aspect" class="w-full">
+              <option value="source" selected>Como el 1er FG</option>
+              <option value="16:9">16:9</option>
+              <option value="9:16">9:16 (vertical)</option>
+              <option value="1:1">1:1</option>
+            </select>
+          </label>
+          <label class="flex flex-col gap-1"> <span class="text-sm opacity-80">Fit fondo</span>
+            <select id="bgFit" class="w-full">
+              <option value="cover">cover</option>
+              <option value="contain" selected>contain</option>
+              <option value="fill">fill</option>
+            </select>
+          </label>
+          <label class="flex flex-col gap-1"> <span class="text-sm opacity-80">FPS</span>
+            <input id="fps" type="number" min="5" max="60" step="1" value="24" />
+          </label>
+          <label class="flex flex-col gap-1"> <span class="text-sm opacity-80">Ancho máx</span>
+            <input id="maxw" type="number" min="320" max="4096" step="16" value="1080" />
+          </label>
+          <label class="flex flex-col gap-1"> <span class="text-sm opacity-80">Calidad (bppf)</span>
+            <input id="bppf" type="number" min="0.05" max="0.50" step="0.01" value="0.22" />
+          </label>
+        </div>
+
+        <!-- Chroma key -->
+        <div class="mt-6 card-dark rounded-2xl p-4">
+          <div class="flex flex-wrap items-center gap-4">
+            <label class="flex items-center gap-2"> <span>Color croma</span>
+              <input id="keyColor" type="color" value="#00ff00" />
+            </label>
+
+            <div class="kv flex items-center gap-2">
+              <label>Umbral</label>
+              <input id="thr" type="range" min="0" max="1" step="0.01" value="0.35" class="w-40" />
+              <input id="thrNum" type="number" min="0" max="1" step="0.01" value="0.35" class="w-20" />
+            </div>
+
+            <div class="kv flex items-center gap-2">
+              <label>Suavizado</label>
+              <input id="soft" type="range" min="0" max="1" step="0.01" value="0.12" class="w-40" />
+              <input id="softNum" type="number" min="0" max="1" step="0.01" value="0.12" class="w-20" />
+            </div>
+
+            <div class="kv flex items-center gap-2">
+              <label>Spill</label>
+              <input id="spill" type="range" min="0" max="1" step="0.01" value="0.25" class="w-40" />
+              <input id="spillNum" type="number" min="0" max="1" step="0.01" value="0.25" class="w-20" />
+            </div>
+          </div>
+
+          <div class="mt-3 grid sm:grid-cols-3 gap-3">
+            <div class="kv flex items-center gap-2">
+              <label>Escala FG (%)</label>
+              <input id="fgScale" type="range" min="10" max="300" step="1" value="100" class="w-full" />
+              <span class="num" id="fgScaleNum">100%</span>
+            </div>
+            <div class="kv flex items-center gap-2">
+              <label>Pos X (%)</label>
+              <input id="fgX" type="range" min="0" max="100" step="1" value="50" class="w-full" />
+              <span class="num" id="fgXNum">50%</span>
+            </div>
+            <div class="kv flex items-center gap-2">
+              <label>Pos Y (%)</label>
+              <input id="fgY" type="range" min="0" max="100" step="1" value="50" class="w-full" />
+              <span class="num" id="fgYNum">50%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Acciones -->
+        <div class="mt-5 flex flex-wrap items-center gap-3">
+          <button id="preview" class="px-4 py-2 rounded-2xl bg-sky-600 hover:bg-sky-500 font-semibold">Previsualizar 1 frame</button>
+          <button id="start" class="px-4 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 font-semibold">Generar MP4</button>
+          <a id="download" download="composed.mp4" class="hidden no-underline">
+            <button class="px-4 py-2 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 font-semibold">Descargar MP4</button>
+          </a>
+          <span id="meta" class="text-sm opacity-90"></span>
+        </div>
+
+        <!-- Progreso -->
+        <div class="mt-4">
+          <div class="bar"><i id="bar"></i></div>
+          <div class="text-sm opacity-85 mt-1" id="status">Listo.</div>
+        </div>
+      </div>
+
+      <!-- Panel UNITH (Text → Video) -->
+      <div class="card rounded-3xl p-6">
+        <h3 class="text-xl font-semibold text-blue-200">Unith (Text → Video)</h3>
+        <div class="mt-4 grid md:grid-cols-2 gap-4">
+          <label class="flex flex-col gap-2"> <span class="text-sm opacity-80">Bearer</span>
+            <input id="unithBearer" type="password" placeholder="Bearer temporal" />
+          </label>
+          <label class="flex flex-col gap-2"> <span class="text-sm opacity-80">Head ID</span>
+            <input id="unithHead" type="text" placeholder="YOUR_HEAD_ID" />
+          </label>
+        </div>
+        <label class="flex flex-col gap-2 mt-4">
+          <span class="text-sm opacity-80">Texto (máx. 100 palabras)</span>
+          <textarea id="unithText" rows="4" placeholder="¿Qué debe decir el avatar?" class="w-full min-h-[120px]"></textarea>
+          <span class="text-sm opacity-80" id="unithCount">0/100 palabras</span>
+        </label>
+        <div class="mt-4 flex flex-wrap gap-3">
+          <button id="unithCreate" class="px-4 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 font-semibold">Generar en Unith</button>
+          <button id="unithList" class="px-4 py-2 rounded-2xl bg-sky-600 hover:bg-sky-500 font-semibold">Listar últimos 10</button>
+        </div>
+        <div class="text-sm opacity-90 mt-3" id="unithMsg"></div>
+        <div id="unithResults" class="text-sm opacity-90 mt-3"></div>
+      </div>
+
+      <p class="opacity-80 text-sm">Consejos: sirve esta página por <strong>HTTPS</strong> o <code>http://127.0.0.1</code>. En Chrome/Edge escritorio. Asegúrate de tener <code>./vendor/mp4-muxer.mjs</code>.</p>
+    </div>
+
+    <!-- Columna derecha: Lienzo / Preview -->
+    <div class="card rounded-3xl p-4 lg:sticky lg:top-6">
+      <canvas id="canvas" class="w-full min-h-[280px]"></canvas>
+      <div class="text-sm opacity-90 mt-3" id="frameInfo"></div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="border-t py-10 text-sm text-slate-300">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-8 justify-between">
+      <div>
+        <div class="font-semibold text-white">UNITH Tools</div>
+        <div class="text-slate-400">Chromakey • WebCodecs • MP4</div>
+      </div>
+      <div class="flex gap-6">
+        <a class="hover:underline" href="#">Docs</a>
+        <a target="_blank" rel="noopener noreferrer" class="hover:underline" href="https://www.unith.ai/">UNITH</a>
+        <a target="_blank" rel="noopener noreferrer" class="hover:underline" href="https://www.unith.ai/pricing">Pricing</a>
+      </div>
+      <div>© 2025 Unith. All rights reserved.</div>
+    </div>
+  </footer>
+
+  <!-- ======== JS original (adaptado tal cual) ======== -->
+  <script type="module">
+  /* ========= UI refs ========= */
+  const $ = s => document.querySelector(s);
+  const fgFilesEl = $('#fgFiles');
+  const bgFilesEl = $('#bgFiles');
+  const aspectEl  = $('#aspect');
+  const bgFitEl   = $('#bgFit');
+  const fpsEl     = $('#fps');
+  const maxwEl    = $('#maxw');
+  const bppfEl    = $('#bppf');
+
+  const keyColorEl= $('#keyColor');
+  const thrEl     = $('#thr');     const thrNum   = $('#thrNum');
+  const softEl    = $('#soft');    const softNum  = $('#softNum');
+  const spillEl   = $('#spill');   const spillNum = $('#spillNum');
+
+  const fgScaleEl = $('#fgScale'); const fgScaleNum = $('#fgScaleNum');
+  const fgXEl     = $('#fgX');     const fgXNum     = $('#fgXNum');
+  const fgYEl     = $('#fgY');     const fgYNum     = $('#fgYNum');
+
+  const previewBtn = $('#preview');
+  const startBtn   = $('#start');
+  const aDownload  = $('#download');
+  const statusEl   = $('#status');
+  const metaEl     = $('#meta');
+  const barEl      = $('#bar');
+
+  const canvas = $('#canvas');
+  const ctx = canvas.getContext('2d', { alpha: true });
+  const frameInfoEl = $('#frameInfo');
+
+  function setProgress(p, msg){
+    barEl.style.width = Math.max(0, Math.min(100, p)) + '%';
+    if (msg) statusEl.textContent = msg;
+  }
+
+  /* ========= Sliders ↔ números ========= */
+  for (const [range, num] of [[thrEl,thrNum],[softEl,softNum],[spillEl,spillNum]]) {
+    range.addEventListener('input', ()=>{ num.value = range.value; });
+    num.addEventListener('input', ()=>{ range.value = num.value; });
+  }
+  fgScaleEl.addEventListener('input', ()=> fgScaleNum.textContent = `${fgScaleEl.value}%`);
+  fgXEl.addEventListener('input', ()=> fgXNum.textContent = `${fgXEl.value}%`);
+  fgYEl.addEventListener('input', ()=> fgYNum.textContent = `${fgYEl.value}%`);
+
+  /* ========= WebCodecs: muxer local ========= */
+  async function loadMuxerLocal() {
+    const mod = await import('./vendor/mp4-muxer.mjs');
+    const ArrayBufferTarget =
+      mod.ArrayBufferTarget || mod.targets?.ArrayBufferTarget || mod.default?.ArrayBufferTarget;
+
+    function makeMuxer(opts) {
+      if (typeof mod.MP4Muxer === 'function') return new mod.MP4Muxer(opts);
+      if (typeof mod.default === 'function') return new mod.default(opts);
+      if (typeof mod.default?.MP4Muxer === 'function') return new mod.default.MP4Muxer(opts);
+      if (typeof mod.Muxer === 'function') return new mod.Muxer(opts);
+      throw new Error('No se encontró constructor compatible en vendor/mp4-muxer.mjs');
+    }
+    return { makeMuxer, ArrayBufferTarget };
+  }
+  const { makeMuxer, ArrayBufferTarget } = await loadMuxerLocal();
+
+  /* ========= Helpers ========= */
+  function checkSupport(){
+    if (!('VideoEncoder' in window) || !('VideoFrame' in window)) {
+      throw new Error('WebCodecs no disponible en este navegador.');
+    }
+  }
+
+  function hexToRgb(hex){
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return { r: parseInt(m[1],16), g: parseInt(m[2],16), b: parseInt(m[3],16) };
+  }
+
+  function colorDist(a,b){
+    const dr=a.r-b.r, dg=a.g-b.g, db=a.b-b.b;
+    return Math.sqrt(dr*dr+dg*dg+db*db)/441.67295593; // normalize ~ [0..1]
+  }
+
+  function smoothstep(edge0, edge1, x){
+    const t = Math.min(1, Math.max(0, (x-edge0)/(edge1-edge0||1e-6)));
+    return t*t*(3-2*t);
+  }
+
+  function keyChroma(ctx, w, h, key, thr, soft, spill){
+    const img = ctx.getImageData(0,0,w,h);
+    const d = img.data;
+
+    for (let i = 0; i < d.length; i += 4){
+      const r = d[i], g = d[i+1], b = d[i+2];
+
+      const dist = colorDist({r,g,b}, key);
+      const a = smoothstep(thr, thr + soft, dist);
+
+      const greenExcess = Math.max(0, g - Math.max(r, b));
+      const spillAmt = (1 - a) * (greenExcess / 255) * spill;
+      d[i]   = Math.round(r + greenExcess * 0.20 * spillAmt);
+      d[i+1] = Math.round(g - greenExcess * 0.70 * spillAmt);
+      d[i+2] = Math.round(b + greenExcess * 0.20 * spillAmt);
+
+      d[i+3] = Math.round(a * 255);
+    }
+
+    ctx.putImageData(img, 0, 0);
+  }
+
+  function drawBGFit(ctx, mediaOrImg, W, H, mode){
+    const isVideo = ('videoWidth' in mediaOrImg);
+    const srcW = isVideo ? mediaOrImg.videoWidth : mediaOrImg.naturalWidth;
+    const srcH = isVideo ? mediaOrImg.videoHeight: mediaOrImg.naturalHeight;
+
+    let dw=W, dh=H, dx=0, dy=0;
+    if (mode === 'contain' || mode === 'cover') {
+      const ar = srcW/srcH, arOut = W/H;
+      const scale = (mode==='contain')
+        ? (ar > arOut ? W/srcW : H/srcH)
+        : (ar > arOut ? H/srcH : W/srcW);
+      dw = Math.round(srcW*scale);
+      dh = Math.round(srcH*scale);
+      dx = Math.round((W - dw)/2);
+      dy = Math.round((H - dh)/2);
+    } else if (mode === 'fill') {
+      dw=W; dh=H; dx=0; dy=0;
+    }
+    ctx.drawImage(mediaOrImg, 0,0,srcW,srcH, dx,dy,dw,dh);
+  }
+
+  function loadVideoFromFile(file){
+    return new Promise((resolve,reject)=>{
+      const v = document.createElement('video');
+      v.muted = true; v.playsinline = true; v.preload = 'auto';
+      v.src = URL.createObjectURL(file);
+      v.onloadedmetadata = ()=> resolve(v);
+      v.onerror = ()=> reject(new Error('No se pudo cargar vídeo: '+file.name));
+    });
+  }
+  function loadImageFromFile(file){
+    return new Promise((resolve,reject)=>{
+      const img = new Image();
+      img.onload = ()=> resolve({img});
+      img.onerror= ()=> reject(new Error('No se pudo cargar imagen: '+file.name));
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  async function computeOutputSize(firstFG){
+    const preset = aspectEl.value;
+    const maxW = Math.max(320, Math.min(4096, parseInt(maxwEl.value||'1080',10)));
+    let W, H;
+    if (preset === 'source') {
+      const ar = firstFG.videoWidth / firstFG.videoHeight;
+      W = Math.min(maxW, makeEven(firstFG.videoWidth));
+      H = makeEven(Math.round(W / ar));
+    } else {
+      let [a,b] = preset.split(':').map(Number);
+      const ar = a/b;
+      W = makeEven(maxW);
+      H = makeEven(Math.round(W / ar));
+    }
+    return {W,H};
+  }
+  const makeEven = n => (n%2 ? n-1 : n);
+
+  /* ========= BG timeline helpers (secuencia + loop) ========= */
+  const IMAGE_BG_DURATION_SEC = 3;
+  async function loadBGTimeline(fileList){
+    const items = [];
+    for (const f of fileList) {
+      if (f.type.startsWith('video/')) {
+        const v = await loadVideoFromFile(f);
+        items.push({ kind:'video', el:v, duration: Math.max(0, v.duration || 0) });
+      } else {
+        const {img} = await loadImageFromFile(f);
+        items.push({ kind:'image', el:img, duration: IMAGE_BG_DURATION_SEC });
+      }
+    }
+    const total = items.reduce((s,i)=> s + (i.duration||0), 0);
+    return { items, totalDuration: total };
+  }
+  function pickBGAt(tSec, bgTimeline, loop=true){
+    if (!bgTimeline || !bgTimeline.items.length) return null;
+    const T = bgTimeline.totalDuration;
+    if (T <= 0) return { item: bgTimeline.items[0], localT: 0 };
+    const tt = loop ? (tSec % T) : Math.min(tSec, Math.max(0, T - 1e-3));
+    let acc = 0;
+    for (const it of bgTimeline.items) {
+      const next = acc + it.duration;
+      if (tt < next || it === bgTimeline.items[bgTimeline.items.length-1]) {
+        return { item: it, localT: Math.max(0, tt - acc) };
+      }
+      acc = next;
+    }
+    const last = bgTimeline.items[bgTimeline.items.length-1];
+    return { item: last, localT: Math.max(0, (tt - (T - last.duration))) };
+  }
+
+  /* ========= Encoder + Muxer ========= */
+  async function pickH264Config({width, height, fps}){
+    const profiles = ['avc1.640032','avc1.64001F','avc1.4D401F','avc1.42E01E'];
+    for (const format of ['avc','annexb']) {
+      for (const codec of profiles) {
+        const s = await VideoEncoder.isConfigSupported({
+          codec, width, height, framerate: fps,
+          hardwareAcceleration: 'prefer-hardware',
+          avc: { format }
+        }).catch(()=>null);
+        if (s?.supported) return s.config;
+      }
+    }
+    throw new Error('H.264 no soportado por WebCodecs en este dispositivo.');
+  }
+
+  function buildMuxer({width,height,frameRate, includeAudio, audioInfo}){
+    const target = new ArrayBufferTarget();
+    const opts = {
+      target,
+      fastStart: false,
+      video: { codec: 'avc', width, height, frameRate }
+    };
+    if (includeAudio && audioInfo) {
+      opts.audio = {
+        codec: 'opus',
+        numberOfChannels: audioInfo.channels,
+        sampleRate: audioInfo.sampleRate
+      };
+    }
+    return { muxer: makeMuxer(opts), target };
+  }
+
+  /* ========= Audio (opcional) del primer FG ========= */
+  async function extractPcmFromFile(file){
+    const arr = await file.arrayBuffer();
+    const actx = new (window.AudioContext || window.webkitAudioContext)();
+    const buf = await actx.decodeAudioData(arr);
+    actx.close();
+    return buf;
+  }
+  function resampleAudioBuffer(buf, srOut){
+    if (buf.sampleRate === srOut) return Promise.resolve(buf);
+    const length = Math.ceil(buf.duration * srOut);
+    const oac = new OfflineAudioContext(buf.numberOfChannels, length, srOut);
+    const src = oac.createBufferSource();
+    src.buffer = buf;
+    src.connect(oac.destination);
+    src.start();
+    return oac.startRendering();
+  }
+  function interleave(planar, ch){
+    const frames = planar[0].length;
+    const out = new Float32Array(frames * ch);
+    let i=0;
+    for (let f=0; f<frames; f++){
+      for (let c=0;c<ch;c++){
+        out[i++] = planar[c][f] || 0;
+      }
+    }
+    return out;
+  }
+  async function encodeOpusFromAudioBuffer(buf, onprogress){
+    if (!('AudioEncoder' in window)) throw new Error('AudioEncoder no disponible');
+    const srOut = 48000;
+    const channels = Math.min(2, buf.numberOfChannels);
+    const resampled = await resampleAudioBuffer(buf, srOut);
+
+    const audioChunks = [];
+    const enc = new AudioEncoder({
+      output: (chunk)=> audioChunks.push(chunk),
+      error: e => console.warn('AudioEncoder error:', e)
+    });
+    const support = await AudioEncoder.isConfigSupported({
+      codec: 'opus',
+      sampleRate: srOut,
+      numberOfChannels: channels,
+      bitrate: 128_000
+    }).catch(()=>null);
+    if (!support?.supported) throw new Error('Opus no soportado por AudioEncoder');
+    enc.configure(support.config);
+
+    const totalFrames = resampled.length;
+    const frameSize = 960; // 20ms @ 48k
+    let readIndex = 0;
+    let ts = 0; // μs
+
+    while (readIndex < totalFrames) {
+      const thisSize = Math.min(frameSize, totalFrames - readIndex);
+      const planar = [];
+      for (let ch=0; ch<channels; ch++){
+        const chan = new Float32Array(thisSize);
+        chan.set(resampled.getChannelData(ch).subarray(readIndex, readIndex+thisSize));
+        planar.push(chan);
+      }
+      const audioData = new AudioData({
+        format: 'f32',
+        sampleRate: srOut,
+        numberOfChannels: channels,
+        numberOfFrames: thisSize,
+        timestamp: ts,
+        data: interleave(planar, channels)
+      });
+      enc.encode(audioData);
+      audioData.close();
+
+      readIndex += thisSize;
+      ts += Math.round(1_000_000 * thisSize / srOut);
+      onprogress?.(Math.round(100*readIndex/totalFrames), 'Audio');
+    }
+    await enc.flush();
+    enc.close();
+    return { chunks: audioChunks, sampleRate: srOut, channels };
+  }
+
+  /* ========= PREVIEW (1 frame) ========= */
+  previewBtn.addEventListener('click', async ()=>{
+    try{
+      setProgress(0,'Previsualizando…');
+      if(!fgFilesEl.files.length){ alert('Sube al menos 1 FG'); return; }
+      if(!bgFilesEl.files.length){ alert('Sube al menos 1 fondo'); return; }
+
+      // FG base
+      const vFG = await loadVideoFromFile(fgFilesEl.files[0]);
+
+      // Timeline de fondos (vídeos + imágenes en secuencia)
+      const bgTimeline = await loadBGTimeline(bgFilesEl.files);
+
+      const {W,H} = await computeOutputSize(vFG);
+      canvas.width=W; canvas.height=H;
+
+      // T para previsualizar (mitad del primer FG)
+      const tPrev = Math.max(0, (vFG.duration || 0) * 0.5);
+      const picked = pickBGAt(tPrev, bgTimeline, true);
+
+      // Dibuja BG correcto para tPrev
+      ctx.clearRect(0,0,W,H);
+      if (picked) {
+        if (picked.item.kind === 'video') {
+          const v = picked.item.el;
+          const seek = (video,t)=>new Promise(res=>{ video.addEventListener('seeked',res,{once:true}); video.currentTime=Math.min((video.duration||0)-1e-3, Math.max(0,t)); });
+          await seek(v, Math.min(picked.localT, Math.max(0,(v.duration||0)-1e-3)));
+          drawBGFit(ctx, v, W, H, bgFitEl.value);
+        } else {
+          drawBGFit(ctx, picked.item.el, W, H, bgFitEl.value);
+        }
+      } else {
+        ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+      }
+
+      // FG sin deformar + croma
+      const srcW=vFG.videoWidth||1, srcH=vFG.videoHeight||1;
+      const fgTmp=document.createElement('canvas'); fgTmp.width=srcW; fgTmp.height=srcH;
+      const fgCtx=fgTmp.getContext('2d',{alpha:true});
+      // seek a mitad y dibuja
+      const seekFG=(video,t)=>new Promise(res=>{ video.addEventListener('seeked',res,{once:true}); video.currentTime=Math.min((video.duration||0)-1e-3, Math.max(0,t)); });
+      await seekFG(vFG, tPrev);
+      fgCtx.drawImage(vFG,0,0,srcW,srcH);
+
+      const key = hexToRgb(keyColorEl.value);
+      keyChroma(fgCtx, srcW,srcH, key, parseFloat(thrEl.value), parseFloat(softEl.value), parseFloat(spillEl.value));
+
+      // contain + escala + posición (mantener AR)
+      const arFG = srcW/srcH;
+      let baseW=W, baseH=Math.round(W/arFG);
+      if (baseH>H){ baseH=H; baseW=Math.round(H*arFG); }
+      const scale = Math.max(0.1, parseFloat(fgScaleEl.value||'100')/100);
+      const dw = Math.round(baseW*scale);
+      const dh = Math.round(baseH*scale);
+      const posX = Math.max(0, Math.min(100, parseFloat(fgXEl.value||'50')))/100;
+      const posY = Math.max(0, Math.min(100, parseFloat(fgYEl.value||'50')))/100;
+      const dx = Math.round((W - dw) * posX);
+      const dy = Math.round((H - dh) * posY);
+
+      ctx.drawImage(fgTmp,0,0,srcW,srcH, dx,dy,dw,dh);
+      frameInfoEl.textContent = `Preview: ${W}×${H} · FG ${srcW}×${srcH} → ${dw}×${dh} @ (${dx},${dy})`;
+      setProgress(100,'Preview listo ✅');
+    }catch(e){
+      console.error(e);
+      setProgress(0,'Error en preview');
+      alert('Error preview: '+(e.message||e));
+    }
+  });
+
+  /* ========= RENDER MP4 ========= */
+  startBtn.addEventListener('click', async ()=>{
+    try{
+      checkSupport();
+      if(!fgFilesEl.files.length){ alert('Sube al menos 1 FG'); return; }
+      if(!bgFilesEl.files.length){ alert('Sube al menos 1 fondo'); return; }
+
+      setProgress(0,'Preparando…');
+      startBtn.disabled = true; previewBtn.disabled=true; aDownload.classList.add('hidden'); metaEl.textContent='';
+
+      const fps = Math.max(5,Math.min(60,parseInt(fpsEl.value||'24',10)));
+      const bppf = Math.max(0.05, Math.min(0.5, parseFloat(bppfEl.value||'0.22')));
+      const key = hexToRgb(keyColorEl.value);
+      const thr = parseFloat(thrEl.value), soft=parseFloat(softEl.value), spill=parseFloat(spillEl.value);
+      const scale = Math.max(0.1, parseFloat(fgScaleEl.value||'100')/100);
+      const posX = Math.max(0, Math.min(100, parseFloat(fgXEl.value||'50')))/100;
+      const posY = Math.max(0, Math.min(100, parseFloat(fgYEl.value||'50')))/100;
+
+      const vidsFG = [];
+      for (const f of fgFilesEl.files) vidsFG.push(await loadVideoFromFile(f));
+      const firstFG = vidsFG[0];
+
+      const {W,H} = await computeOutputSize(firstFG);
+      canvas.width=W; canvas.height=H;
+
+      const bgTimeline = await loadBGTimeline(bgFilesEl.files);
+
+      const chosen = await pickH264Config({width:W, height:H, fps});
+      let wcDecoderConfig = null;
+      const chunksV = [];
+
+      const targetBitrate = Math.max(800_000, Math.round(W*H*fps*bppf));
+      const vCfg = {
+        ...chosen, width:W, height:H,
+        framerate: fps,
+        bitrate: targetBitrate,
+        bitrateMode: 'variable',
+        hardwareAcceleration: 'prefer-hardware',
+        latencyMode: 'quality',
+        contentHint: 'detail',
+        avc: { format: 'avc' }
+      };
+
+      const encoder = new VideoEncoder({
+        output: (chunk, metadata) => {
+          if (!wcDecoderConfig && metadata?.decoderConfig?.description) {
+            wcDecoderConfig = {
+              description: metadata.decoderConfig.description,
+              colorSpace: { primaries:'bt709', transfer:'bt709', matrix:'bt709', fullRange:false }
+            };
+          }
+          chunksV.push(chunk);
+        },
+        error: e => console.warn('VideoEncoder error:', e)
+      });
+      encoder.configure(vCfg);
+
+      // Audio (opcional) del primer FG
+      let audioChunks = null;
+      let audioInfo = null;
+      try{
+        setProgress(0,'Extrayendo audio…');
+        const pcm = await extractPcmFromFile(fgFilesEl.files[0]);
+        const encA = await encodeOpusFromAudioBuffer(pcm, (p)=>setProgress(p,'Audio…'));
+        audioChunks = encA.chunks;
+        audioInfo = { sampleRate: encA.sampleRate, channels: encA.channels };
+      }catch(e){
+        console.warn('Audio no disponible / ignorado:', e.message||e);
+      }
+
+      // Componer + codificar
+      let pts = 0; const frameDurUS = Math.round(1_000_000/fps);
+      const fgTmp=document.createElement('canvas');
+      const fgCtx=fgTmp.getContext('2d',{alpha:true});
+      const seek=(video,t)=>new Promise(res=>{ video.addEventListener('seeked',res,{once:true}); video.currentTime=Math.min((video.duration||0)-1e-3, Math.max(0,t)); });
+
+      let totalFrames = 0;
+      for (const v of vidsFG) totalFrames += Math.ceil((v.duration||0) * fps);
+
+      let doneFrames = 0, clipIndex=0;
+
+      for (const v of vidsFG) {
+        const frames = Math.ceil((v.duration||0) * fps);
+        for (let i=0;i<frames;i++){
+          const t = Math.min((i/fps), Math.max(0,(v.duration||0)-1e-3));
+          await seek(v,t);
+
+          const tGlobal = pts / 1_000_000;
+
+          ctx.clearRect(0,0,W,H);
+          const picked = pickBGAt(tGlobal, bgTimeline, true);
+          if (picked) {
+            if (picked.item.kind === 'video') {
+              const vbg = picked.item.el;
+              const seekBG = (video,t2)=>new Promise(res=>{ video.addEventListener('seeked',res,{once:true}); video.currentTime=Math.min((video.duration||0)-1e-3, Math.max(0,t2)); });
+              await seekBG(vbg, Math.min(picked.localT, Math.max(0,(vbg.duration||0)-1e-3)));
+              drawBGFit(ctx, vbg, W, H, bgFitEl.value);
+            } else {
+              drawBGFit(ctx, picked.item.el, W, H, bgFitEl.value);
+            }
+          } else {
+            ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+          }
+
+          const srcW=v.videoWidth||1, srcH=v.videoHeight||1;
+          fgTmp.width=srcW; fgTmp.height=srcH;
+          fgCtx.clearRect(0,0,srcW,srcH);
+          fgCtx.drawImage(v,0,0,srcW,srcH);
+
+          const keyRGB = hexToRgb(keyColorEl.value);
+          keyChroma(fgCtx, srcW,srcH, keyRGB, thr, soft, spill);
+
+          const arFG = srcW/srcH;
+          let baseW=W, baseH=Math.round(W/arFG);
+          if (baseH>H){ baseH=H; baseW=Math.round(H*arFG); }
+          const dw = Math.round(baseW*scale);
+          const dh = Math.round(baseH*scale);
+          const dx = Math.round((W-dw)*posX);
+          const dy = Math.round((H-dh)*posY);
+          ctx.drawImage(fgTmp,0,0,srcW,srcH, dx,dy,dw,dh);
+
+          const bmp = await createImageBitmap(canvas);
+          const frame = new VideoFrame(bmp, { timestamp: pts });
+          encoder.encode(frame, { keyFrame: (i===0 && clipIndex===0) });
+          frame.close(); bmp.close();
+
+          pts += frameDurUS;
+          doneFrames++;
+          if (doneFrames % Math.max(1,Math.round(totalFrames/100))===0) {
+            setProgress(Math.round((100*doneFrames)/totalFrames), `Render vídeo ${doneFrames}/${totalFrames}`);
+          }
+        }
+        clipIndex++;
+      }
+
+      await encoder.flush();
+      encoder.close();
+
+      setProgress(0,'Muxing…');
+      const includeAudio = !!(audioChunks && audioChunks.length && audioInfo);
+      const { muxer, target } = buildMuxer({
+        width: W, height:H, frameRate: fps, includeAudio, audioInfo
+      });
+
+      if (!wcDecoderConfig) throw new Error('No llegó decoderConfig del encoder (SPS/PPS).');
+      let sentConfig = false;
+      for (const c of chunksV) {
+        const opts = { duration: frameDurUS };
+        if (!sentConfig) { opts.decoderConfig = wcDecoderConfig; sentConfig = true; }
+        muxer.addVideoChunk(c, opts);
+      }
+
+      if (includeAudio) {
+        for (const ac of audioChunks) muxer.addAudioChunk(ac);
+      }
+
+      muxer.finalize();
+      const u8 = new Uint8Array(target.buffer);
+      const blob = new Blob([u8], { type: 'video/mp4' });
+
+      const url = URL.createObjectURL(blob);
+      aDownload.href = url; aDownload.classList.remove('hidden');
+      aDownload.download = `composed_${W}x${H}_${fps}fps.mp4`;
+      metaEl.textContent = `${(blob.size/1024/1024).toFixed(2)} MB · ${fps} fps · ${W}×${H}${includeAudio?' · audio ✅':' · sin audio'}`;
+      setProgress(100,'Listo ✅');
+
+    }catch(e){
+      console.error(e);
+      setProgress(0,'Error');
+      alert('❌ '+(e.message||e));
+    } finally {
+      startBtn.disabled = false; previewBtn.disabled=false;
+    }
+  });
+
+  /* ========= === Unith direct (rápido) — 100 PALABRAS === ========= */
+  const unithBearerEl = document.querySelector('#unithBearer');
+  const unithHeadEl   = document.querySelector('#unithHead');
+  const unithTextEl   = document.querySelector('#unithText');
+  const unithCreateBtn= document.querySelector('#unithCreate');
+  const unithListBtn  = document.querySelector('#unithList');
+  const unithMsgEl    = document.querySelector('#unithMsg');
+  const unithResultsEl= document.querySelector('#unithResults');
+  const unithCountEl  = document.querySelector('#unithCount');
+
+  const MAX_WORDS = 100;
+
+  function setUnithMsg(t){ unithMsgEl.textContent = t || ""; }
+  function countWords(s){ return s.trim().split(/\s+/).filter(Boolean).length; }
+  function trimToWords(s, max){
+    const parts = s.trim().split(/\s+/).filter(Boolean);
+    if (parts.length <= max) return s.trim();
+    return parts.slice(0, max).join(' ');
+  }
+  function updateUnithCounter(){
+    const words = countWords(unithTextEl.value);
+    unithCountEl.textContent = `${words}/${MAX_WORDS} palabras`;
+    if (words > MAX_WORDS) {
+      unithTextEl.value = trimToWords(unithTextEl.value, MAX_WORDS);
+      unithCountEl.textContent = `${MAX_WORDS}/${MAX_WORDS} palabras`;
+    }
+  }
+  unithTextEl.addEventListener('input', updateUnithCounter);
+  updateUnithCounter();
+
+  async function unithCreateTalkDirect(){
+    const bearer = (unithBearerEl.value||"").trim();
+    const headId = (unithHeadEl.value||"").trim();
+    let text     = trimToWords((unithTextEl.value||"").trim(), MAX_WORDS);
+    if (!bearer || !headId || !text) {
+      setUnithMsg("Introduce Bearer, Head ID y Texto (máx. 100 palabras).");
+      return;
+    }
+    setUnithMsg("Enviando a Unith…");
+    try {
+      const r = await fetch("https://platform-api.unith.ai/head/text-to-video", {
+        method: "POST",
+        headers: {
+          "accept": "application/json",
+          "content-type": "application/json",
+          "authorization": `Bearer ${bearer}`
+        },
+        body: JSON.stringify({ id: headId, text })
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.error || JSON.stringify(data));
+      setUnithMsg("Solicitud aceptada ✅ (guarda el Job ID si aparece en data.id).");
+      console.log("Unith create response:", data);
+    } catch (e) {
+      console.error(e);
+      setUnithMsg("❌ Error al crear: " + (e.message || e));
+    }
+  }
+
+  function renderTalksList(items){
+    if (!items || !items.length) {
+      unithResultsEl.innerHTML = "<div>Sin resultados.</div>";
+      return;
+    }
+    const html = items.map(it=>{
+      const dt = it.createdAt ? new Date(it.createdAt).toLocaleString() : "-";
+      const url = it.url ? `<div><a href="${it.url}" target="_blank" rel="noopener">Ver/Descargar video</a></div>` : "<div>Sin URL aún</div>";
+      return `
+        <div style="padding:.5rem; border:1px solid rgba(255,255,255,.2); border-radius:8px; margin-bottom:.5rem;">
+          <div><strong>ID:</strong> ${it.id}</div>
+          <div><strong>Fecha:</strong> ${dt}</div>
+          <div><strong>Voz:</strong> ${it.voice || "-"}</div>
+          <div><strong>Texto:</strong> ${it.text || "-"}</div>
+          ${url}
+        </div>
+      `;
+    }).join("");
+    unithResultsEl.innerHTML = html;
+  }
+
+  async function unithListTalksDirect(){
+    const bearer = (unithBearerEl.value||"").trim();
+    const headId = (unithHeadEl.value||"").trim();
+    if (!bearer || !headId) {
+      setUnithMsg("Introduce Bearer y Head ID.");
+      return;
+    }
+    setUnithMsg("Consultando últimos vídeos…");
+    try {
+      const url = `https://platform-api.unith.ai/head/talks/${encodeURIComponent(headId)}?order=DESC&page=1&take=10`;
+      const r = await fetch(url, {
+        headers: {
+          "accept": "application/json",
+          "authorization": `Bearer ${bearer}`
+        }
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.error || JSON.stringify(data));
+      renderTalksList(data?.data || []);
+      setUnithMsg(`Listo. (${(data?.meta?.itemCount ?? 0)} items)`);
+    } catch (e) {
+      console.error(e);
+      setUnithMsg("❌ Error al listar: " + (e.message || e));
+    }
+  }
+
+  document.querySelector('#unithCreate').addEventListener("click", unithCreateTalkDirect);
+  document.querySelector('#unithList').addEventListener("click", unithListTalksDirect);
+  </script>
+</body>
+</html>
